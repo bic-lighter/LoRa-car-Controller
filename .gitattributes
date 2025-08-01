@@ -1,2 +1,90 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+#define RFM95_CS 10
+#define RFM95_RST 9
+#define RFM95_INT 2
+RFM95 rfm = new Module(RFM95_CS, RFM95_INT, RFM95_RST, -1);
+#define in1 5
+#define in2 6
+#define in3 7
+#define in4 4
+#define ena 3
+#define enb 8
+int Ux = 0, Uy = 0;
+void setup() {
+  Serial.begin(9600);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(ena, OUTPUT);
+  pinMode(enb, OUTPUT);
+
+  Serial.print("Initializing RFM95W module...");
+  int state = rfm.begin(915.0); 
+  if (state == RADIOLIB_ERR_NONE) {
+    Serial.println("success!");
+  } else {
+    Serial.print("failed, code ");
+    Serial.println(state);
+    while (true);
+  }
+  rfm.setSpreadingFactor(7);  
+  rfm.setBandwidth(125.0); 
+  rfm.setCodingRate(5); 
+}
+void loop() {
+  String receivedData;
+  int state = rfm.receive(receivedData);
+  if (state == RADIOLIB_ERR_NONE) {
+    Serial.println("data recieved!");
+    Serial.println(receivedData);
+    sscanf(receivedData.c_str(), "%d %d", &Ux, &Uy);
+    Serial.print("Parsed Ux: ");
+    Serial.print(Ux);
+    Serial.print(" Uy: ");
+    Serial.println(Uy);
+    int x = (Ux - 512) * (255.0 / 512.0);
+    int y = (Uy - 512) * (255.0 / 512.0);
+    if (x < 0 && y < 0) { 
+      analogWrite(ena, abs(x));
+      analogWrite(enb, abs(y));
+      digitalWrite(in1, LOW);
+      digitalWrite(in2, HIGH);    
+      digitalWrite(in3, LOW);
+      digitalWrite(in4, HIGH);
+    }
+    else if (x > 0 && y < 0) {
+      analogWrite(ena, x);
+      analogWrite(enb, abs(y));
+      digitalWrite(in1, HIGH);
+      digitalWrite(in2, LOW);    
+      digitalWrite(in3, LOW);
+      digitalWrite(in4, HIGH);
+    }
+    else if (x < 0 && y > 0) { 
+      analogWrite(ena, abs(x));
+      analogWrite(enb, y);
+      digitalWrite(in1, LOW);
+      digitalWrite(in2, HIGH);    
+      digitalWrite(in3, HIGH);
+      digitalWrite(in4, LOW);
+    }
+    else if (x > 0 && y > 0) { 
+      analogWrite(ena, x);
+      analogWrite(enb, y);
+      digitalWrite(in1, HIGH);
+      digitalWrite(in2, LOW);    
+      digitalWrite(in3, HIGH);
+      digitalWrite(in4, LOW);
+    }
+    else if (x == 0 && y == 0) { 
+      digitalWrite(in1, LOW);
+      digitalWrite(in2, LOW);    
+      digitalWrite(in3, LOW);
+      digitalWrite(in4, LOW);
+    }
+  } else {
+    Serial.print("Receive failed, code ");
+    Serial.println(state);
+
+  }
+}
